@@ -1,10 +1,14 @@
-import java.util.ArrayList;
+package com.farm.animal;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.SQLException;
 
+import java.util.ArrayList;
 public class HealthManager {
 
     private ArrayList<HealthRecord> healthRecords;
 
-    // Constructor
+
     public HealthManager() {
         this.healthRecords = new ArrayList<>();
     }
@@ -17,6 +21,7 @@ public class HealthManager {
             }
         }
         healthRecords.add(record);
+        record.saveToDB();
         System.out.println("Health record added for animal: " + record.getAnimalTagNumber());
     }
 
@@ -98,9 +103,6 @@ public class HealthManager {
         }
     }
 
-    // ─────────────────────────────────────────
-    // DISPLAY all health records
-    // ─────────────────────────────────────────
     public void displayAll() {
         if (healthRecords.isEmpty()) {
             System.out.println("No health records found.");
@@ -113,9 +115,7 @@ public class HealthManager {
         System.out.println("==========================\n");
     }
 
-    // ─────────────────────────────────────────
-    // DISPLAY all records for one animal
-    // ─────────────────────────────────────────
+
     public void displayByAnimal(String animalTagNumber) {
         ArrayList<HealthRecord> records = findByAnimalTag(animalTagNumber);
         if (records.isEmpty()) {
@@ -134,6 +134,8 @@ public class HealthManager {
     }
 
 
+
+
     public static void main(String[] args) {
         HealthManager manager = new HealthManager();
 
@@ -148,6 +150,8 @@ public class HealthManager {
         manager.addRecord(r1);
         manager.addRecord(r2);
         manager.addRecord(r3);
+
+
 
         manager.displayAll();
 
