@@ -1,3 +1,7 @@
+package com.farm.animal;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.SQLException;
 
 public class StockItem {
 
@@ -62,5 +66,26 @@ public class StockItem {
     public String toString() {
         return String.format("[%d] %s | Category: %s | Qty: %.2f %s | Reorder at: %.2f %s | Low Stock: %s",
                 itemId, itemName, category, quantity, unit, reorderLevel, unit, isLowStock() ? "YES" : "No");
+    }
+
+    public void saveToDB() {
+        Connection conn = null;
+        try {
+            conn = DBConnection.getConnection();
+            String sql = "INSERT INTO StockItems (itemId, itemName, category, quantity, unit, reorderLevel) VALUES (?, ?, ?, ?, ?, ?)";
+            PreparedStatement stmt = conn.prepareStatement(sql);
+            stmt.setInt(1, itemId);
+            stmt.setString(2, itemName);
+            stmt.setString(3, category);
+            stmt.setDouble(4, quantity);
+            stmt.setString(5, unit);
+            stmt.setDouble(6, reorderLevel);
+            stmt.executeUpdate();
+            System.out.println("Stock item saved to DB!");
+        } catch (SQLException e) {
+            System.out.println("Error saving stock item: " + e.getMessage());
+        } finally {
+            DBConnection.closeConnection(conn);
+        }
     }
 }
