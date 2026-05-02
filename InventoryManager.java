@@ -1,5 +1,8 @@
+package com.farm.animal;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.SQLException;
 import java.util.ArrayList;
-
 public class InventoryManager {
 
     private ArrayList<StockItem> stockList;
@@ -18,6 +21,7 @@ public class InventoryManager {
             }
         }
         stockList.add(item);
+        item.saveToDB();
         System.out.println("Item added: " + item.getItemName());
     }
 
