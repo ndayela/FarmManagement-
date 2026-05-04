@@ -1,0 +1,1124 @@
+CREATE DATABASE Farm_System;
+USE Farm_System;
+GO
+
+CREATE TABLE ANIMALS(
+TAGID INT PRIMARY KEY,
+BREED VARCHAR(45) NOT NULL,
+GENDER CHAR NOT NULL,
+STATE VARCHAR(60) NOT NULL
+);
+
+CREATE TABLE CATTLE(
+TAGID INT PRIMARY KEY,
+BREED VARCHAR(45) NOT NULL,
+GENDER CHAR NOT NULL,
+STATE VARCHAR(60) NOT NULL
+FOREIGN KEY (TAGID) REFERENCES ANIMALS(TAGID)
+);
+
+CREATE TABLE SHEEP(
+TAGID INT PRIMARY KEY,
+BREED VARCHAR(45) NOT NULL,
+GENDER CHAR NOT NULL,
+STATE VARCHAR(60) NOT NULL
+FOREIGN KEY (TAGID) REFERENCES ANIMALS(TAGID)
+);
+
+CREATE TABLE POULTRY(
+TAGID INT PRIMARY KEY,
+BREED VARCHAR(45) NOT NULL,
+GENDER CHAR NOT NULL,
+STATE VARCHAR(60) NOT NULL
+FOREIGN KEY (TAGID) REFERENCES ANIMALS(TAGID)
+);
+
+CREATE TABLE MedicalRecords (
+    RECORDID         INT PRIMARY KEY,
+    TAGID            INT,
+    TREATMENTDATE    DATE,
+    DIAGNOSIS        VARCHAR(100),
+    MEDICATIONS      VARCHAR(100),
+    MEDICATION_DOSAGE VARCHAR(45),
+    STAFF_MEMBER     VARCHAR(40),
+    NOTES            VARCHAR(255),
+    FOREIGN KEY (TAGID) REFERENCES ANIMALS(TAGID)
+);
+
+CREATE TABLE HealthManager(
+    RECORDID         INT PRIMARY KEY,
+    TAGID            INT,
+    TREATMENTDATE    DATE,
+    DIAGNOSIS        VARCHAR(100),
+    MEDICATIONS      VARCHAR(100),
+    MEDICATION_DOSAGE VARCHAR(45),
+    STAFF_MEMBER     VARCHAR(40),
+    NOTES            VARCHAR(255),
+    FOREIGN KEY (TAGID) REFERENCES ANIMALS(TAGID)
+);
+
+CREATE TABLE StockItem (
+    ITEMID        INT PRIMARY KEY,
+    ITEM_NAME     VARCHAR(100),
+    CATEGORY      VARCHAR(50),
+    QUANTITY      DECIMAL(10, 2),
+    UNIT          VARCHAR(10),
+    REORDER_LEVEL DECIMAL(10, 2)
+);
+
+CREATE TABLE INVENTORY_MANAGER(
+ITEMID INT PRIMARY KEY,
+ITEM_NAME VARCHAR(100),
+CATEGORY VARCHAR(50),
+QUANTITY DECIMAL(10,2),
+UNIT VARCHAR (10),
+REORDER_LEVEL DECIMAL(10,2)
+ FOREIGN KEY (ITEMID) REFERENCES StockItem(ITEMID)
+);
+
+
+--PROCEDURES AND OTHER STUFF--
+
+--PROCEDURE--
+-- INSERT into CATTLE
+GO
+CREATE PROCEDURE AddCattle
+    @TAGID  INT,
+    @BREED  VARCHAR(45),
+    @GENDER CHAR,
+    @STATE  VARCHAR(60)
+AS
+BEGIN
+    -- First insert into ANIMALS (parent table must be filled first)
+    INSERT INTO ANIMALS (TAGID, BREED, GENDER, STATE)
+    VALUES (@TAGID, @BREED, @GENDER, @STATE);
+
+    -- Then insert into CATTLE
+    INSERT INTO CATTLE (TAGID, BREED, GENDER, STATE)
+    VALUES (@TAGID, @BREED, @GENDER, @STATE);
+END;
+GO
+
+-- DISPLAY all Cattle
+CREATE PROCEDURE GetAllCattle
+AS
+BEGIN
+    SELECT * FROM CATTLE;
+END;
+GO
+
+-- INSERT into SHEEP
+CREATE PROCEDURE AddSheep
+    @TAGID  INT,
+    @BREED  VARCHAR(45),
+    @GENDER CHAR,
+    @STATE  VARCHAR(60)
+AS
+BEGIN
+    INSERT INTO ANIMALS (TAGID, BREED, GENDER, STATE)
+    VALUES (@TAGID, @BREED, @GENDER, @STATE);
+
+    INSERT INTO SHEEP (TAGID, BREED, GENDER, STATE)
+    VALUES (@TAGID, @BREED, @GENDER, @STATE);
+END;
+GO
+
+-- DISPLAY all Sheep
+CREATE PROCEDURE GetAllSheep
+AS
+BEGIN
+    SELECT * FROM SHEEP;
+END;
+GO
+
+-- INSERT into POULTRY
+CREATE PROCEDURE AddPoultry
+    @TAGID  INT,
+    @BREED  VARCHAR(45),
+    @GENDER CHAR,
+    @STATE  VARCHAR(60)
+AS
+BEGIN
+    INSERT INTO ANIMALS (TAGID, BREED, GENDER, STATE)
+    VALUES (@TAGID, @BREED, @GENDER, @STATE);
+
+    INSERT INTO POULTRY (TAGID, BREED, GENDER, STATE)
+    VALUES (@TAGID, @BREED, @GENDER, @STATE);
+END;
+GO
+
+-- DISPLAY all Poultry
+CREATE PROCEDURE GetAllPoultry
+AS
+BEGIN
+    SELECT * FROM POULTRY;
+END;
+GO
+
+
+--TRIGGERS--
+--NO DUPLICATES--
+CREATE TRIGGER trg_NoDuplicateTag_Cattle
+ON CATTLE
+INSTEAD OF INSERT          --
+AS
+BEGIN
+    IF EXISTS (
+        SELECT 1 FROM SHEEP  WHERE TAGID IN (SELECT TAGID FROM inserted)
+    )
+    OR EXISTS (
+        SELECT 1 FROM POULTRY WHERE TAGID IN (SELECT TAGID FROM inserted)
+    )
+    BEGIN
+        RAISERROR('This TAGID already exists in another animal table.', 16, 1); 
+        ROLLBACK TRANSACTION;
+    END
+    ELSE
+    BEGIN
+        -- If no duplicate, go ahead and insert
+        INSERT INTO CATTLE (TAGID, BREED, GENDER, STATE)
+        SELECT TAGID, BREED, GENDER, STATE FROM inserted;
+    END
+END;
+GO
+
+-- Auto DELETE from ANIMALS when Cattle is deleted
+CREATE TRIGGER trg_DeleteCattle
+ON CATTLE
+AFTER DELETE
+AS
+BEGIN
+    DELETE FROM ANIMALS
+    WHERE TAGID IN (SELECT TAGID FROM deleted);
+END;
+GO
+
+-- Same for SHEEP
+CREATE TRIGGER trg_DeleteSheep
+ON SHEEP
+AFTER DELETE
+AS
+BEGIN
+    DELETE FROM ANIMALS
+    WHERE TAGID IN (SELECT TAGID FROM deleted);
+END;
+
+-- Same for POULTRY
+GO
+CREATE TRIGGER trg_DeletePoultry
+ON POULTRY
+AFTER DELETE
+AS
+BEGIN
+    DELETE FROM ANIMALS
+    WHERE TAGID IN (SELECT TAGID FROM deleted);
+END;
+
+GO
+-- ADD STOCK
+CREATE PROCEDURE AddStock
+    @ITEMID   INT,
+    @QUANTITY DECIMAL(10,2)
+AS
+BEGIN
+    UPDATE StockItem
+    SET QUANTITY = QUANTITY + @QUANTITY
+    WHERE ITEMID = @ITEMID;
+
+    PRINT 'Stock added successfully';
+END;
+GO
+
+-- SUBTRACT STOCK
+CREATE PROCEDURE SubtractStock
+    @ITEMID   INT,
+    @QUANTITY DECIMAL(10,2)
+AS
+BEGIN
+    -- Check if enough stock exists first
+    IF (SELECT QUANTITY FROM StockItem WHERE ITEMID = @ITEMID) < @QUANTITY
+    BEGIN
+        RAISERROR('Not enough stock available.', 16, 1);
+        RETURN;
+    END
+
+    UPDATE StockItem
+    SET QUANTITY = QUANTITY - @QUANTITY
+    WHERE ITEMID = @ITEMID;
+
+    PRINT 'Stock subtracted successfully';
+END;
+GO
+
+-- TRIGGER: Check stock after every update
+CREATE TRIGGER trg_CheckReorderLevel
+ON StockItem
+AFTER UPDATE
+AS
+BEGIN
+    IF EXISTS (
+        SELECT 1 FROM inserted
+        WHERE QUANTITY <= REORDER_LEVEL
+    )
+    BEGIN
+        RAISERROR('WARNING: Stock has fallen below reorder level!', 16, 1);
+    END
+END;
+GO
+
+--TRANSACTION--
+CREATE PROCEDURE SafeSubtractStock
+    @ITEMID   INT,
+    @QUANTITY DECIMAL(10,2)
+AS
+BEGIN
+    BEGIN TRANSACTION;
+        IF (SELECT QUANTITY FROM StockItem WHERE ITEMID = @ITEMID) < @QUANTITY
+        BEGIN
+            RAISERROR('Not enough stock available.', 16, 1);
+            ROLLBACK TRANSACTION;
+            RETURN;
+        END
+
+        UPDATE StockItem
+        SET QUANTITY = QUANTITY - @QUANTITY
+        WHERE ITEMID = @ITEMID;
+
+    COMMIT TRANSACTION;
+    PRINT 'Stock safely subtracted';
+END;
+GO
+
+--DISPLAYING
+CREATE VIEW StockStatus AS
+    SELECT
+        ITEMID,
+        ITEM_NAME,
+        CATEGORY,
+        QUANTITY,
+        UNIT,
+        REORDER_LEVEL,
+        CASE
+            WHEN QUANTITY <= REORDER_LEVEL THEN ' LOW STOCK'
+            ELSE ' STOCK OK'
+        END AS STOCK_STATUS
+    FROM StockItem;
+GO
+
+-- INSERT Health Record
+CREATE PROCEDURE AddHealthRecord
+    @RECORDID          INT,
+    @TAGID             INT,
+    @TREATMENTDATE     DATE,
+    @DIAGNOSIS         VARCHAR(100),
+    @MEDICATIONS       VARCHAR(100),
+    @MEDICATION_DOSAGE VARCHAR(45),
+    @STAFF_MEMBER      VARCHAR(40),
+    @NOTES             VARCHAR(255)
+AS
+BEGIN
+    BEGIN TRY
+        -- Check if RECORDID already exists
+        IF EXISTS (SELECT 1 FROM HealthManager WHERE RECORDID = @RECORDID)
+        BEGIN
+            RAISERROR('A record with this RECORDID already exists.', 16, 1);
+            RETURN;
+        END
+
+        -- Check if TAGID exists in ANIMALS
+        IF NOT EXISTS (SELECT 1 FROM ANIMALS WHERE TAGID = @TAGID)
+        BEGIN
+            RAISERROR('This TAGID does not exist in ANIMALS table.', 16, 1);
+            RETURN;
+        END
+
+        -- Check if date is valid
+        IF @TREATMENTDATE > GETDATE()
+        BEGIN
+            RAISERROR('Treatment date cannot be in the future.', 16, 1);
+            RETURN;
+        END;
+
+        -- Insert the record
+        INSERT INTO HealthManager (
+            RECORDID,
+            TAGID,
+            TREATMENTDATE,
+            DIAGNOSIS,
+            MEDICATIONS,
+            MEDICATION_DOSAGE,
+            STAFF_MEMBER,
+            NOTES
+        )
+        VALUES (
+            @RECORDID,
+            @TAGID,
+            @TREATMENTDATE,
+            @DIAGNOSIS,
+            @MEDICATIONS,
+            @MEDICATION_DOSAGE,
+            @STAFF_MEMBER,
+            @NOTES
+        );
+
+        PRINT 'Health record added successfully.';
+
+    END TRY
+    BEGIN CATCH
+        PRINT 'ERROR: '        + ERROR_MESSAGE();
+        PRINT 'Error Number: ' + CAST(ERROR_NUMBER() AS VARCHAR);
+        PRINT 'Error Line: '   + CAST(ERROR_LINE()   AS VARCHAR);
+    END CATCH
+END;
+GO
+
+-- DISPLAY ALL Health Records
+CREATE PROCEDURE GetAllHealthRecords
+AS
+BEGIN
+    BEGIN TRY
+        SELECT * FROM HealthManager;
+    END TRY
+    BEGIN CATCH
+        PRINT 'ERROR: '        + ERROR_MESSAGE();
+        PRINT 'Error Number: ' + CAST(ERROR_NUMBER() AS VARCHAR);
+        PRINT 'Error Line: '   + CAST(ERROR_LINE()   AS VARCHAR);
+    END CATCH
+END;
+GO
+
+-- DISPLAY Health Record by TAGID
+CREATE PROCEDURE GetHealthRecordByTag
+    @TAGID INT
+AS
+BEGIN
+    BEGIN TRY
+        IF NOT EXISTS (SELECT 1 FROM HealthManager WHERE TAGID = @TAGID)
+        BEGIN
+            RAISERROR('No health records found for this TAGID.', 16, 1);
+            RETURN;
+        END
+
+        SELECT * FROM HealthManager WHERE TAGID = @TAGID;
+
+    END TRY
+    BEGIN CATCH
+        PRINT 'ERROR: '        + ERROR_MESSAGE();
+        PRINT 'Error Number: ' + CAST(ERROR_NUMBER() AS VARCHAR);
+        PRINT 'Error Line: '   + CAST(ERROR_LINE()   AS VARCHAR);
+    END CATCH
+END;
+GO
+
+-- TRIGGER: Log when a new health record is added
+CREATE TRIGGER trg_AfterInsertHealth
+ON HealthManager
+AFTER INSERT
+AS
+BEGIN
+    BEGIN TRY
+        PRINT 'New health record has been added for TAGID: ' +
+              CAST((SELECT TAGID FROM inserted) AS VARCHAR);
+    END TRY
+    BEGIN CATCH
+        PRINT 'TRIGGER ERROR: ' + ERROR_MESSAGE();
+        ROLLBACK TRANSACTION;
+    END CATCH
+END;
+GO
+
+CREATE TRIGGER trg_CheckTreatmentDate
+ON HealthManager
+INSTEAD OF INSERT    --
+AS
+BEGIN
+    BEGIN TRY
+        IF EXISTS (
+            SELECT 1 FROM inserted
+            WHERE TREATMENTDATE > GETDATE()
+        )
+        BEGIN
+            RAISERROR('Treatment date cannot be in the future.', 16, 1);
+            ROLLBACK TRANSACTION;
+        END
+        ELSE
+        BEGIN
+            -- If date is valid go ahead and insert
+            INSERT INTO HealthManager (
+                RECORDID,
+                TAGID,
+                TREATMENTDATE,
+                DIAGNOSIS,
+                MEDICATIONS,
+                MEDICATION_DOSAGE,
+                STAFF_MEMBER,
+                NOTES
+            )
+            SELECT
+                RECORDID,
+                TAGID,
+                TREATMENTDATE,
+                DIAGNOSIS,
+                MEDICATIONS,
+                MEDICATION_DOSAGE,
+                STAFF_MEMBER,
+                NOTES
+            FROM inserted;
+        END
+
+    END TRY
+    BEGIN CATCH
+        PRINT 'TRIGGER ERROR: ' + ERROR_MESSAGE();
+        ROLLBACK TRANSACTION;
+    END CATCH
+END;
+GO
+
+--DISPLAYING--
+CREATE VIEW HealthRecordStatus AS
+    SELECT
+        h.RECORDID,
+        h.TAGID,
+        a.BREED,
+        a.STATE         AS ANIMAL_STATE,
+        h.TREATMENTDATE,
+        h.DIAGNOSIS,
+        h.MEDICATIONS,
+        h.MEDICATION_DOSAGE,
+        h.STAFF_MEMBER,
+        h.NOTES,
+        CASE
+            WHEN a.STATE = 'Healthy'  THEN ' Healthy'
+            WHEN a.STATE = 'Sick'     THEN ' Needs Attention'
+            WHEN a.STATE = 'Critical' THEN ' Critical'
+            ELSE ' Unknown'
+        END AS HEALTH_STATUS
+    FROM HealthManager h
+    JOIN ANIMALS a ON h.TAGID = a.TAGID;
+GO
+
+--TRANSACTION--
+CREATE PROCEDURE SafeAddHealthRecord
+    @RECORDID          INT,
+    @TAGID             INT,
+    @TREATMENTDATE     DATE,
+    @DIAGNOSIS         VARCHAR(100),
+    @MEDICATIONS       VARCHAR(100),
+    @MEDICATION_DOSAGE VARCHAR(45),
+    @STAFF_MEMBER      VARCHAR(40),
+    @NOTES             VARCHAR(255)
+AS
+BEGIN
+    BEGIN TRY
+        BEGIN TRANSACTION;
+
+            -- Check if RECORDID already exists
+            IF EXISTS (SELECT 1 FROM HealthManager WHERE RECORDID = @RECORDID)
+            BEGIN
+                RAISERROR('A record with this RECORDID already exists.', 16, 1);
+                ROLLBACK TRANSACTION;
+                RETURN;
+            END
+
+            -- Check if TAGID exists in ANIMALS
+            IF NOT EXISTS (SELECT 1 FROM ANIMALS WHERE TAGID = @TAGID)
+            BEGIN
+                RAISERROR('This TAGID does not exist in ANIMALS table.', 16, 1);
+                ROLLBACK TRANSACTION;
+                RETURN;
+            END
+
+            -- Insert the record
+            INSERT INTO HealthManager (
+                RECORDID,
+                TAGID,
+                TREATMENTDATE,
+                DIAGNOSIS,
+                MEDICATIONS,
+                MEDICATION_DOSAGE,
+                STAFF_MEMBER,
+                NOTES
+            )
+            VALUES (
+                @RECORDID,
+                @TAGID,
+                @TREATMENTDATE,
+                @DIAGNOSIS,
+                @MEDICATIONS,
+                @MEDICATION_DOSAGE,
+                @STAFF_MEMBER,
+                @NOTES
+            );
+
+        COMMIT TRANSACTION;
+        PRINT 'Health record safely added and committed.';
+
+    END TRY
+    BEGIN CATCH
+        IF @@TRANCOUNT > 0
+            ROLLBACK TRANSACTION;
+
+        PRINT 'TRANSACTION FAILED!';
+        PRINT 'ERROR: '        + ERROR_MESSAGE();
+        PRINT 'Error Number: ' + CAST(ERROR_NUMBER() AS VARCHAR);
+        PRINT 'Error Line: '   + CAST(ERROR_LINE()   AS VARCHAR);
+    END CATCH
+END;
+GO
+
+CREATE PROCEDURE AddHealthManagerRecord
+    @RECORDID          INT,
+    @TAGID             INT,
+    @TREATMENTDATE     DATE,
+    @DIAGNOSIS         VARCHAR(100),
+    @MEDICATIONS       VARCHAR(100),
+    @MEDICATION_DOSAGE VARCHAR(45),
+    @STAFF_MEMBER      VARCHAR(40),
+    @NOTES             VARCHAR(255)
+AS
+BEGIN
+    BEGIN TRY
+        BEGIN TRANSACTION;
+
+            -- Check if RECORDID already exists
+            IF EXISTS (SELECT 1 FROM HealthManager WHERE RECORDID = @RECORDID)
+            BEGIN
+                RAISERROR('A record with this RECORDID already exists.', 16, 1);
+                ROLLBACK TRANSACTION;
+                RETURN;
+            END
+
+            -- Check if TAGID exists in ANIMALS
+            IF NOT EXISTS (SELECT 1 FROM ANIMALS WHERE TAGID = @TAGID)
+            BEGIN
+                RAISERROR('This TAGID does not exist in ANIMALS table.', 16, 1);
+                ROLLBACK TRANSACTION;
+                RETURN;
+            END
+
+            -- Check if date is valid
+            IF @TREATMENTDATE > GETDATE()
+            BEGIN
+                RAISERROR('Treatment date cannot be in the future.', 16, 1);
+                ROLLBACK TRANSACTION;
+                RETURN;
+            END
+
+            -- Insert the record
+            INSERT INTO HealthManager (
+                RECORDID,
+                TAGID,
+                TREATMENTDATE,
+                DIAGNOSIS,
+                MEDICATIONS,
+                MEDICATION_DOSAGE,
+                STAFF_MEMBER,
+                NOTES
+            )
+            VALUES (
+                @RECORDID,
+                @TAGID,
+                @TREATMENTDATE,
+                @DIAGNOSIS,
+                @MEDICATIONS,
+                @MEDICATION_DOSAGE,
+                @STAFF_MEMBER,
+                @NOTES
+            );
+
+        COMMIT TRANSACTION;
+        PRINT 'Health record added successfully.';
+
+    END TRY
+    BEGIN CATCH
+        IF @@TRANCOUNT > 0
+            ROLLBACK TRANSACTION;
+
+        PRINT 'TRANSACTION FAILED!';
+        PRINT 'ERROR: '        + ERROR_MESSAGE();
+        PRINT 'Error Number: ' + CAST(ERROR_NUMBER() AS VARCHAR);
+        PRINT 'Error Line: '   + CAST(ERROR_LINE()   AS VARCHAR);
+    END CATCH
+END;
+GO
+
+
+CREATE PROCEDURE RemoveHealthManagerRecord
+    @RECORDID INT
+AS
+BEGIN
+    BEGIN TRY
+        BEGIN TRANSACTION;
+
+            -- Check if record exists
+            IF NOT EXISTS (SELECT 1 FROM HealthManager WHERE RECORDID = @RECORDID)
+            BEGIN
+                RAISERROR('Record not found. Cannot delete.', 16, 1);
+                ROLLBACK TRANSACTION;
+                RETURN;
+            END
+
+            -- Delete the record
+            DELETE FROM HealthManager
+            WHERE RECORDID = @RECORDID;
+
+        COMMIT TRANSACTION;
+        PRINT 'Health record removed successfully.';
+
+    END TRY
+    BEGIN CATCH
+        IF @@TRANCOUNT > 0
+            ROLLBACK TRANSACTION;
+
+        PRINT 'TRANSACTION FAILED!';
+        PRINT 'ERROR: '        + ERROR_MESSAGE();
+        PRINT 'Error Number: ' + CAST(ERROR_NUMBER() AS VARCHAR);
+        PRINT 'Error Line: '   + CAST(ERROR_LINE()   AS VARCHAR);
+    END CATCH
+END;
+GO
+
+CREATE PROCEDURE FindAnimalHealthRecord
+    @TAGID INT
+AS
+BEGIN
+    BEGIN TRY
+
+        -- Check if animal exists in ANIMALS table
+        IF NOT EXISTS (SELECT 1 FROM ANIMALS WHERE TAGID = @TAGID)
+        BEGIN
+            RAISERROR('This animal does not exist in the system.', 16, 1);
+            RETURN;
+        END
+
+        -- Check if animal has any health records
+        IF NOT EXISTS (SELECT 1 FROM HealthManager WHERE TAGID = @TAGID)
+        BEGIN
+            RAISERROR('No health records found for this animal.', 16, 1);
+            RETURN;
+        END
+
+        -- Display animal info joined with health records
+        SELECT
+            a.TAGID,
+            a.BREED,
+            a.GENDER,
+            a.STATE,
+            h.RECORDID,
+            h.TREATMENTDATE,
+            h.DIAGNOSIS,
+            h.MEDICATIONS,
+            h.MEDICATION_DOSAGE,
+            h.STAFF_MEMBER,
+            h.NOTES
+        FROM HealthManager h
+        JOIN ANIMALS a ON h.TAGID = a.TAGID
+        WHERE h.TAGID = @TAGID;
+
+    END TRY
+    BEGIN CATCH
+        PRINT 'ERROR: '        + ERROR_MESSAGE();
+        PRINT 'Error Number: ' + CAST(ERROR_NUMBER() AS VARCHAR);
+        PRINT 'Error Line: '   + CAST(ERROR_LINE()   AS VARCHAR);
+    END CATCH
+END;
+GO
+
+
+-- TRIGGER: After a record is added
+CREATE TRIGGER trg_AfterAddHealthManager
+ON HealthManager
+AFTER INSERT
+AS
+BEGIN
+    BEGIN TRY
+        PRINT 'New health record added for TAGID: ' +
+              CAST((SELECT TAGID FROM inserted) AS VARCHAR);
+    END TRY
+    BEGIN CATCH
+        PRINT 'TRIGGER ERROR: ' + ERROR_MESSAGE();
+        ROLLBACK TRANSACTION;
+    END CATCH
+END;
+GO
+
+-- TRIGGER: After a record is removed
+CREATE TRIGGER trg_AfterRemoveHealthManager
+ON HealthManager
+AFTER DELETE
+AS
+BEGIN
+    BEGIN TRY
+        PRINT 'Health record removed for TAGID: ' +
+              CAST((SELECT TAGID FROM deleted) AS VARCHAR);
+    END TRY
+    BEGIN CATCH
+        PRINT 'TRIGGER ERROR: ' + ERROR_MESSAGE();
+        ROLLBACK TRANSACTION;
+    END CATCH
+END;
+GO
+
+CREATE PROCEDURE CursorAllTreatedAnimals
+AS
+BEGIN
+    BEGIN TRY
+        DECLARE @TAGID        INT;
+        DECLARE @DIAGNOSIS    VARCHAR(100);
+        DECLARE @STAFF_MEMBER VARCHAR(40);
+        DECLARE @TREATMENTDATE DATE;
+
+        DECLARE cursor_health CURSOR FOR
+            SELECT TAGID, DIAGNOSIS, STAFF_MEMBER, TREATMENTDATE
+            FROM HealthManager;
+
+        OPEN cursor_health;
+        FETCH NEXT FROM cursor_health
+        INTO @TAGID, @DIAGNOSIS, @STAFF_MEMBER, @TREATMENTDATE;
+
+        WHILE @@FETCH_STATUS = 0
+        BEGIN
+            PRINT 'TAGID: '      + CAST(@TAGID AS VARCHAR) +
+                  ' | Diagnosis: ' + @DIAGNOSIS +
+                  ' | Staff: '     + @STAFF_MEMBER +
+                  ' | Date: '      + CAST(@TREATMENTDATE AS VARCHAR);
+
+            FETCH NEXT FROM cursor_health
+            INTO @TAGID, @DIAGNOSIS, @STAFF_MEMBER, @TREATMENTDATE;
+        END;
+
+        CLOSE cursor_health;
+        DEALLOCATE cursor_health;
+
+    END TRY
+    BEGIN CATCH
+        CLOSE cursor_health;
+        DEALLOCATE cursor_health;
+        PRINT 'CURSOR ERROR: ' + ERROR_MESSAGE();
+    END CATCH
+END;
+GO
+
+
+-- UPDATE Stock Quantity
+CREATE PROCEDURE UpdateInventoryStock
+    @ITEMID   INT,
+    @QUANTITY DECIMAL(10,2)
+AS
+BEGIN
+    BEGIN TRY
+        BEGIN TRANSACTION;
+
+            -- Check if item exists in StockItem
+            IF NOT EXISTS (SELECT 1 FROM StockItem WHERE ITEMID = @ITEMID)
+            BEGIN
+                RAISERROR('Item does not exist in StockItem table.', 16, 1);
+                ROLLBACK TRANSACTION;
+                RETURN;
+            END
+
+            -- Check if item exists in INVENTORY_MANAGER
+            IF NOT EXISTS (SELECT 1 FROM INVENTORY_MANAGER WHERE ITEMID = @ITEMID)
+            BEGIN
+                RAISERROR('Item does not exist in INVENTORY_MANAGER table.', 16, 1);
+                ROLLBACK TRANSACTION;
+                RETURN;
+            END
+
+            -- Check if quantity is valid
+            IF @QUANTITY < 0
+            BEGIN
+                RAISERROR('Quantity cannot be negative.', 16, 1);
+                ROLLBACK TRANSACTION;
+                RETURN;
+            END
+
+            -- Update INVENTORY_MANAGER
+            UPDATE INVENTORY_MANAGER
+            SET QUANTITY = @QUANTITY
+            WHERE ITEMID = @ITEMID;
+
+            -- Update StockItem as well to keep both in sync
+            UPDATE StockItem
+            SET QUANTITY = @QUANTITY
+            WHERE ITEMID = @ITEMID;
+
+        COMMIT TRANSACTION;
+        PRINT 'Inventory stock updated successfully.';
+
+    END TRY
+    BEGIN CATCH
+        IF @@TRANCOUNT > 0
+            ROLLBACK TRANSACTION;
+
+        PRINT 'TRANSACTION FAILED!';
+        PRINT 'ERROR: '        + ERROR_MESSAGE();
+        PRINT 'Error Number: ' + CAST(ERROR_NUMBER() AS VARCHAR);
+        PRINT 'Error Line: '   + CAST(ERROR_LINE()   AS VARCHAR);
+    END CATCH
+END;
+GO
+
+-- ADD Stock to existing quantity
+CREATE PROCEDURE AddInventoryStock
+    @ITEMID   INT,
+    @QUANTITY DECIMAL(10,2)
+AS
+BEGIN
+    BEGIN TRY
+        BEGIN TRANSACTION;
+
+            -- Check if item exists
+            IF NOT EXISTS (SELECT 1 FROM INVENTORY_MANAGER WHERE ITEMID = @ITEMID)
+            BEGIN
+                RAISERROR('Item does not exist in INVENTORY_MANAGER.', 16, 1);
+                ROLLBACK TRANSACTION;
+                RETURN;
+            END
+
+            -- Check if quantity is valid
+            IF @QUANTITY <= 0
+            BEGIN
+                RAISERROR('Quantity must be greater than zero.', 16, 1);
+                ROLLBACK TRANSACTION;
+                RETURN;
+            END
+
+            -- Add to INVENTORY_MANAGER
+            UPDATE INVENTORY_MANAGER
+            SET QUANTITY = QUANTITY + @QUANTITY
+            WHERE ITEMID = @ITEMID;
+
+            -- Keep StockItem in sync
+            UPDATE StockItem
+            SET QUANTITY = QUANTITY + @QUANTITY
+            WHERE ITEMID = @ITEMID;
+
+        COMMIT TRANSACTION;
+        PRINT 'Stock added to inventory successfully.';
+
+    END TRY
+    BEGIN CATCH
+        IF @@TRANCOUNT > 0
+            ROLLBACK TRANSACTION;
+
+        PRINT 'TRANSACTION FAILED!';
+        PRINT 'ERROR: '        + ERROR_MESSAGE();
+        PRINT 'Error Number: ' + CAST(ERROR_NUMBER() AS VARCHAR);
+        PRINT 'Error Line: '   + CAST(ERROR_LINE()   AS VARCHAR);
+    END CATCH
+END;
+GO
+
+-- SUBTRACT Stock from existing quantity
+CREATE PROCEDURE SubtractInventoryStock
+    @ITEMID   INT,
+    @QUANTITY DECIMAL(10,2)
+AS
+BEGIN
+    BEGIN TRY
+        BEGIN TRANSACTION;
+
+            -- Check if item exists
+            IF NOT EXISTS (SELECT 1 FROM INVENTORY_MANAGER WHERE ITEMID = @ITEMID)
+            BEGIN
+                RAISERROR('Item does not exist in INVENTORY_MANAGER.', 16, 1);
+                ROLLBACK TRANSACTION;
+                RETURN;
+            END
+
+            -- Check if quantity is valid
+            IF @QUANTITY <= 0
+            BEGIN
+                RAISERROR('Quantity must be greater than zero.', 16, 1);
+                ROLLBACK TRANSACTION;
+                RETURN;
+            END
+
+            -- Check if enough stock exists
+            IF (SELECT QUANTITY FROM INVENTORY_MANAGER WHERE ITEMID = @ITEMID) < @QUANTITY
+            BEGIN
+                RAISERROR('Not enough stock available.', 16, 1);
+                ROLLBACK TRANSACTION;
+                RETURN;
+            END
+
+            -- Subtract from INVENTORY_MANAGER
+            UPDATE INVENTORY_MANAGER
+            SET QUANTITY = QUANTITY - @QUANTITY
+            WHERE ITEMID = @ITEMID;
+
+            -- Keep StockItem in sync
+            UPDATE StockItem
+            SET QUANTITY = QUANTITY - @QUANTITY
+            WHERE ITEMID = @ITEMID;
+
+        COMMIT TRANSACTION;
+        PRINT 'Stock subtracted from inventory successfully.';
+
+    END TRY
+    BEGIN CATCH
+        IF @@TRANCOUNT > 0
+            ROLLBACK TRANSACTION;
+
+        PRINT 'TRANSACTION FAILED!';
+        PRINT 'ERROR: '        + ERROR_MESSAGE();
+        PRINT 'Error Number: ' + CAST(ERROR_NUMBER() AS VARCHAR);
+        PRINT 'Error Line: '   + CAST(ERROR_LINE()   AS VARCHAR);
+    END CATCH
+END;
+GO
+
+
+-- VIEW: Display all inventory with stock status
+CREATE VIEW InventoryStatus AS
+    SELECT
+        i.ITEMID,
+        i.ITEM_NAME,
+        i.CATEGORY,
+        i.QUANTITY,
+        i.UNIT,
+        i.REORDER_LEVEL,
+        CASE
+            WHEN i.QUANTITY <= 0              THEN ' OUT OF STOCK'
+            WHEN i.QUANTITY <= i.REORDER_LEVEL THEN ' LOW STOCK'
+            ELSE                                   'STOCK OK'
+        END AS STOCK_STATUS
+    FROM INVENTORY_MANAGER i;
+GO
+
+-- PROCEDURE: Display all inventory
+CREATE PROCEDURE GetAllInventory2
+AS
+BEGIN
+    BEGIN TRY
+
+        IF NOT EXISTS (SELECT 1 FROM INVENTORY_MANAGER)
+        BEGIN
+            RAISERROR('No items found in Inventory.', 16, 1);
+            RETURN;
+        END
+
+        SELECT * FROM InventoryStatus;
+
+    END TRY
+    BEGIN CATCH
+        PRINT 'ERROR: '        + ERROR_MESSAGE();
+        PRINT 'Error Number: ' + CAST(ERROR_NUMBER() AS VARCHAR);
+        PRINT 'Error Line: '   + CAST(ERROR_LINE()   AS VARCHAR);
+    END CATCH
+END;
+GO
+
+-- PROCEDURE: Display a single item by ITEMID
+CREATE PROCEDURE GetInventoryByID
+    @ITEMID INT
+AS
+BEGIN
+    BEGIN TRY
+
+        IF NOT EXISTS (SELECT 1 FROM INVENTORY_MANAGER WHERE ITEMID = @ITEMID)
+        BEGIN
+            RAISERROR('Item not found in Inventory.', 16, 1);
+            RETURN;
+        END
+
+        SELECT * FROM InventoryStatus WHERE ITEMID = @ITEMID;
+
+    END TRY
+    BEGIN CATCH
+        PRINT 'ERROR: '        + ERROR_MESSAGE();
+        PRINT 'Error Number: ' + CAST(ERROR_NUMBER() AS VARCHAR);
+        PRINT 'Error Line: '   + CAST(ERROR_LINE()   AS VARCHAR);
+    END CATCH
+END;
+GO
+
+-- PROCEDURE: Display only LOW STOCK items
+CREATE PROCEDURE GetLowStockItems
+AS
+BEGIN
+    BEGIN TRY
+
+        IF NOT EXISTS (
+            SELECT 1 FROM INVENTORY_MANAGER
+            WHERE QUANTITY <= REORDER_LEVEL
+        )
+        BEGIN
+            RAISERROR('No low stock items found.', 16, 1);
+            RETURN;
+        END
+
+        SELECT * FROM InventoryStatus
+        WHERE STOCK_STATUS = ' LOW STOCK'
+           OR STOCK_STATUS = ' OUT OF STOCK';
+
+    END TRY
+    BEGIN CATCH
+        PRINT 'ERROR: '        + ERROR_MESSAGE();
+        PRINT 'Error Number: ' + CAST(ERROR_NUMBER() AS VARCHAR);
+        PRINT 'Error Line: '   + CAST(ERROR_LINE()   AS VARCHAR);
+    END CATCH
+END;
+GO
+
+CREATE PROCEDURE CursorAllInventory
+AS
+BEGIN
+    BEGIN TRY
+        DECLARE @ITEMID       INT;
+        DECLARE @ITEM_NAME    VARCHAR(100);
+        DECLARE @QUANTITY     DECIMAL(10,2);
+        DECLARE @REORDER_LEVEL DECIMAL(10,2);
+        DECLARE @UNIT         VARCHAR(10);
+
+        DECLARE cursor_inventory CURSOR FOR
+            SELECT ITEMID, ITEM_NAME, QUANTITY, REORDER_LEVEL, UNIT
+            FROM INVENTORY_MANAGER;
+
+        OPEN cursor_inventory;
+        FETCH NEXT FROM cursor_inventory
+        INTO @ITEMID, @ITEM_NAME, @QUANTITY, @REORDER_LEVEL, @UNIT;
+
+        WHILE @@FETCH_STATUS = 0
+        BEGIN
+            PRINT 'ItemID: '    + CAST(@ITEMID    AS VARCHAR) +
+                  ' | Name: '   + @ITEM_NAME                 +
+                  ' | Qty: '    + CAST(@QUANTITY   AS VARCHAR) +
+                  ' | Unit: '   + @UNIT                       +
+                  ' | Reorder: '+ CAST(@REORDER_LEVEL AS VARCHAR);
+
+            FETCH NEXT FROM cursor_inventory
+            INTO @ITEMID, @ITEM_NAME, @QUANTITY, @REORDER_LEVEL, @UNIT;
+        END;
+
+        CLOSE cursor_inventory;
+        DEALLOCATE cursor_inventory;
+
+    END TRY
+    BEGIN CATCH
+        CLOSE cursor_inventory;
+        DEALLOCATE cursor_inventory;
+        PRINT 'CURSOR ERROR: ' + ERROR_MESSAGE();
+    END CATCH
+END;
+GO
+
+CREATE FUNCTION CheckInventoryStock(@ITEMID INT)
+RETURNS DECIMAL(10,2)
+AS
+BEGIN
+    DECLARE @QTY DECIMAL(10,2);
+
+    IF NOT EXISTS (SELECT 1 FROM INVENTORY_MANAGER WHERE ITEMID = @ITEMID)
+        RETURN -1;
+
+    SELECT @QTY = QUANTITY
+    FROM INVENTORY_MANAGER
+    WHERE ITEMID = @ITEMID;
+
+    RETURN @QTY;
+END;
+GO
+
+SELECT * FROM POULTRY;
