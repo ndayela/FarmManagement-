@@ -6,19 +6,21 @@ import java.sql.SQLException;
 
 public class DBConnection {
 
-    private static final String SERVER = "localhost\\SQLEXPRESS";
-    private static final String PORT = "60962";
-    private static final String DATABASE = "Farm_System";
-;
+    private static final String SERVER = "localhost";
+    private static final String PORT = "1433";
+    private static final String DATABASE = "Farm_System3";
+
     private static final String URL =
             "jdbc:sqlserver://" + SERVER + ":" + PORT + ";" +
                     "databaseName=" + DATABASE + ";" +
-                    "integratedSecurity=true;" +
                     "encrypt=true;" +
                     "trustServerCertificate=true;";
 
+    private static final String USER = "farmuser";
+    private static final String PASSWORD = "1234";
+
     public static Connection getConnection() throws SQLException {
-        return DriverManager.getConnection(URL);
+        return DriverManager.getConnection(URL, USER, PASSWORD);
     }
 
     public static void closeConnection(Connection conn) {
@@ -31,3 +33,5 @@ public class DBConnection {
         }
     }
 }
+
+
