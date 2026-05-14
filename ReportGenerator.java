@@ -18,7 +18,8 @@ public class ReportGenerator {
             writer.println("=================================================");
             writer.println("Farm Name:      " + farm.getFarmName());
             writer.println("Owner:          " + farm.getOwnerName());
-            writer.println("Location:       " + farm.getLocation());
+            writer.println("Town:       " + farm.getTown());
+            writer.println("Country:    " + farm.getCountry());
             writer.println("Report Date:    " + now.format(formatter));
             writer.println("=================================================");
             writer.println();
