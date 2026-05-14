@@ -1,91 +1,81 @@
 package com.farm.animal;
 
-import java.sql.Connection;
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.sql.Statement;
+import java.sql.*;
+import java.util.List;
 
 public class ReportTest {
-    public static void main(String[] args) {
+
+    // ADD THIS METHOD HERE
+    public static Farm loadFarmFromDatabase(String farmName, String owner, String town, String country) throws SQLException {
+        Farm farm = new Farm(farmName, owner, town, country);
         
-        // 1. Create the farm object
-        Farm myFarm = new Farm("Sunrise Farm", "Van Booysen", "Otjiwarongo, Namibia");
-        
-        // 2. Option A: Add animals manually for testing
-        Cattle cow1 = new Cattle("C001", "Holstein", "Female", "HEALTHY", true);
-        Cattle cow2 = new Cattle("C002", "Brahman", "Male", "DEAD", false);
-        Sheep sheep1 = new Sheep("S001", "Dorper", "Male", "LOST");
-        Poultry chicken1 = new Poultry("P001", "Broiler", "Female", "STOLEN");
-        
-        myFarm.addAnimal(cow1);
-        myFarm.addAnimal(cow2);
-        myFarm.addAnimal(sheep1);
-        myFarm.addAnimal(chicken1);
-        
-        // 2. Option B: Load animals from DB instead
-        // loadAnimalsFromDB(myFarm);
-        
-        // 3. Generate the report - this is where Farm + ReportGenerator connect
-        ReportGenerator generator = new ReportGenerator();
-        generator.generateTextReport(myFarm, "livestock_report_2026-05-05.txt");
-        
-        // 4. Optional: Print to console too
-        System.out.println("\nTotal active animals: " + myFarm.getTotalActiveCount());
-        System.out.println("Dead animals: " + myFarm.getCountByStatus("DEAD"));
+        try (Connection conn = DBConnection.getConnection()) {
+            
+            // Load CATTLE
+            String sqlCattle = "SELECT TAGID, BREED, GENDER, STATE FROM CATTLE";
+            try (Statement stmt = conn.createStatement();
+                 ResultSet rs = stmt.executeQuery(sqlCattle)) {
+                while (rs.next()) {
+                    int tagId = rs.getInt("TAGID");
+                    String breed = rs.getString("BREED");
+                    String gender = rs.getString("GENDER").trim();
+                    String state = rs.getString("STATE");
+                    farm.addAnimal(new Cattle(String.valueOf(tagId), breed, gender, state));
+                }
+            }
+            
+            // Load SHEEP
+            String sqlSheep = "SELECT TAGID, BREED, GENDER, STATE FROM SHEEP";
+            try (Statement stmt = conn.createStatement();
+                 ResultSet rs = stmt.executeQuery(sqlSheep)) {
+                while (rs.next()) {
+                    int tagId = rs.getInt("TAGID");
+                    String breed = rs.getString("BREED");
+                    String gender = rs.getString("GENDER").trim();
+                    String state = rs.getString("STATE");
+                    farm.addAnimal(new Sheep(String.valueOf(tagId), breed, gender, state));
+                }
+            }
+            
+            // Load POULTRY
+            String sqlPoultry = "SELECT TAGID, BREED, GENDER, STATE FROM POULTRY";
+            try (Statement stmt = conn.createStatement();
+                 ResultSet rs = stmt.executeQuery(sqlPoultry)) {
+                while (rs.next()) {
+                    int tagId = rs.getInt("TAGID");
+                    String breed = rs.getString("BREED");
+                    String gender = rs.getString("GENDER").trim();
+                    String state = rs.getString("STATE");
+                    farm.addAnimal(new Poultry(String.valueOf(tagId), breed, gender, state));
+                }
+            }
+        }
+        return farm;
     }
-    
-    // Helper method to load from your DB tables
-    public static void loadAnimalsFromDB(Farm farm) {
+
+    // YOUR MAIN METHOD - UPDATE IT TO THIS
+    public static void main(String[] args) {
         try {
-            Connection conn = DBConnection.getConnection();
-            Statement stmt = conn.createStatement();
+            // Now loads from MySQL instead of hardcoding
+            Farm myFarm = loadFarmFromDatabase("Sunrise Farm", "John Doe", "Otjiwarango", "Namibia");
             
-            // Load Cattle
-            ResultSet rs = stmt.executeQuery("SELECT * FROM Cattle");
-            while (rs.next()) {
-                Cattle c = new Cattle(
-                    rs.getString("tagNumber"),
-                    rs.getString("breed"),
-                    rs.getString("gender"),
-                    rs.getString("status"),
-                    rs.getBoolean("isForMilk")
-                );
-                farm.addAnimal(c);
-            }
+            List<Animal> animals = (List<Animal>) myFarm.getAnimals(); // List not Object
+        System.out.println("Count: " + animals.size()); // .size() works on List
+        
             
-            // Load Sheep
-            rs = stmt.executeQuery("SELECT * FROM Sheep");
-            while (rs.next()) {
-                Sheep s = new Sheep(
-                    rs.getString("tagNumber"),
-                    rs.getString("breed"),
-                    rs.getString("gender"),
-                    rs.getString("status")
-                );
-                farm.addAnimal(s);
-            }
+            ReportGenerator generator = new ReportGenerator();
+            String filename = "livestock_report_" + java.time.LocalDate.now() + ".txt";
+            generator.generateTextReport(myFarm, filename);
             
-            // Load Poultry
-            rs = stmt.executeQuery("SELECT * FROM Poultry");
-            while (rs.next()) {
-                Poultry p = new Poultry(
-                    rs.getString("tagNumber"),
-                    rs.getString("breed"),
-                    rs.getString("gender"),
-                    rs.getString("status")
-                );
-                farm.addAnimal(p);
-            }
-            
-            DBConnection.closeConnection(conn);
-            System.out.println("Animals loaded from DB successfully!");
+            System.out.println("Report generated: " + filename);
+            System.out.println("Total active: " + myFarm.getTotalActiveCount());
+            System.out.println("Dead: " + myFarm.getCountByStatus("DEAD"));
             
         } catch (SQLException e) {
-            System.out.println("Error loading from DB: " + e.getMessage());
+            System.out.println("Database error: " + e.getMessage());
         }
     }
-}
 
-    
+}
 
 
