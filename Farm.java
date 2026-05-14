@@ -8,13 +8,15 @@ import java.util.stream.Collectors;
 public class Farm {
     private final String farmName;
     private final String ownerName;
-    private final String location;
+    private final String town;
+    private final String country;
     private final List<Animal> animals = new ArrayList<>();
 
-    public Farm(String farmName, String ownerName, String location) {
+    public Farm(String farmName, String ownerName, String town, String country) {
         this.farmName = farmName;
         this.ownerName = ownerName;
-        this.location = location;
+        this.town = town;
+        this.country = country;
     }
 
     public void addAnimal(Animal animal) {
@@ -57,7 +59,8 @@ public class Farm {
     // Getters for report
     public String getFarmName() { return farmName; }
     public String getOwnerName() { return ownerName; }
-    public String getLocation() { return location; }
+    public String getTown() { return town;    }
+    public String getCountry(){return country; }
     public List<Animal> getAllAnimals() { return animals; }
 
     
@@ -66,5 +69,9 @@ public long getCountByStatus(String status) {
             .filter(a -> a.getStatus().equalsIgnoreCase(status))
             .count();
 }
+
+    Object getAnimals() {
+        throw new UnsupportedOperationException("Not supported yet."); // Generated from nbfs://nbhost/SystemFileSystem/Templates/Classes/Code/GeneratedMethodBody
+    }
 
 }
