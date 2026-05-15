@@ -55,7 +55,7 @@ public class ReportTest {
     //  MAIN METHOD
     public static void main(String[] args) {
         try {
-            //  Loads from MySQL instead of hardcoding
+            //  Loads from MySQL
             Farm myFarm = loadFarmFromDatabase("Sunrise Farm", "John Doe", "Otjiwarango", "Namibia");
             
             List<Animal> animals = (List<Animal>) myFarm.getAnimals(); // List not Object
