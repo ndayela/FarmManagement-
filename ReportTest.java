@@ -5,7 +5,6 @@ import java.util.List;
 
 public class ReportTest {
 
-    // ADD THIS METHOD HERE
     public static Farm loadFarmFromDatabase(String farmName, String owner, String town, String country) throws SQLException {
         Farm farm = new Farm(farmName, owner, town, country);
         
@@ -53,10 +52,10 @@ public class ReportTest {
         return farm;
     }
 
-    // YOUR MAIN METHOD - UPDATE IT TO THIS
+    //  MAIN METHOD
     public static void main(String[] args) {
         try {
-            // Now loads from MySQL instead of hardcoding
+            //  Loads from MySQL instead of hardcoding
             Farm myFarm = loadFarmFromDatabase("Sunrise Farm", "John Doe", "Otjiwarango", "Namibia");
             
             List<Animal> animals = (List<Animal>) myFarm.getAnimals(); // List not Object
